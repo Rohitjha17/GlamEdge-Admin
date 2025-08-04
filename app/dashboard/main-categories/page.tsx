@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,10 +14,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit, Trash2, ArrowLeft, Loader2 } from "lucide-react"
+import { Plus, Edit, Trash2, ArrowLeft, Loader2, Search, Filter, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { mainCategoriesApi } from "@/lib/api"
+import { ImageUpload } from "@/components/ui/image-upload"
+import { TableSkeleton, DialogSkeleton } from "@/components/ui/loading-skeleton"
+import { Logo } from "@/components/ui/logo"
 
 interface MainCategory {
   _id: string
@@ -28,29 +31,52 @@ interface MainCategory {
 
 export default function MainCategoriesPage() {
   const [categories, setCategories] = useState<MainCategory[]>([])
+  const [filteredCategories, setFilteredCategories] = useState<MainCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<MainCategory | null>(null)
   const [formData, setFormData] = useState({ name: "", imageUrl: "" })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  useEffect(() => {
-    fetchCategories()
-  }, [])
-
-  const fetchCategories = async () => {
-    try {
+  // Memoized fetch function
+  const fetchCategories = useCallback(async (showLoading = true) => {
+    if (showLoading) {
       setLoading(true)
+    }
+    setError("")
+
+    try {
       const data = await mainCategoriesApi.getAll()
       setCategories(data)
+      setFilteredCategories(data)
     } catch (error: any) {
       setError(error.message || "Failed to fetch categories")
       console.error("Fetch categories error:", error)
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  // Search and filter functionality
+  useEffect(() => {
+    const filtered = categories.filter(category =>
+      category.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    setFilteredCategories(filtered)
+  }, [categories, searchTerm])
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await fetchCategories(false)
+    setIsRefreshing(false)
   }
+
+  useEffect(() => {
+    fetchCategories()
+  }, [fetchCategories])
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.imageUrl) {
@@ -68,7 +94,7 @@ export default function MainCategoriesPage() {
         await mainCategoriesApi.create(formData)
       }
 
-      await fetchCategories()
+      await fetchCategories(false)
       setIsDialogOpen(false)
       setEditingCategory(null)
       setFormData({ name: "", imageUrl: "" })
@@ -92,7 +118,7 @@ export default function MainCategoriesPage() {
 
     try {
       await mainCategoriesApi.delete(id)
-      await fetchCategories()
+      await fetchCategories(false)
     } catch (error: any) {
       alert(error.message || "Failed to delete category")
       console.error("Delete category error:", error)
@@ -107,138 +133,197 @@ export default function MainCategoriesPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading categories...</span>
-        </div>
-      </div>
-    )
+    return <TableSkeleton />
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold">Main Categories</h1>
-              <p className="text-gray-600">Manage your main service categories</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 space-y-4 sm:space-y-0">
+                      <div className="flex items-center space-x-4">
+              <Link href="/dashboard">
+                <Button variant="outline" size="sm" className="border-pink-200 text-pink-600 hover:bg-pink-50">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Main Categories</h1>
+                <p className="text-gray-600">Manage your main service categories</p>
+              </div>
             </div>
+            <div className="hidden md:block">
+              <Logo size="sm" variant="simple" />
+            </div>
+          <div className="flex items-center space-x-2">
+            <Button 
+              onClick={handleRefresh} 
+              variant="outline" 
+              size="sm"
+              disabled={isRefreshing}
+              className="border-purple-200 text-purple-600 hover:bg-purple-50"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button onClick={openAddDialog} className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 shadow-lg">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Category
+            </Button>
           </div>
-          <Button onClick={openAddDialog} className="bg-gradient-to-r from-pink-500 to-purple-600">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Category
-          </Button>
+        </div>
+
+        {/* Search and Filter */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search categories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 border-pink-200 focus:border-pink-400 focus:ring-pink-400"
+            />
+          </div>
         </div>
 
         {/* Categories Table */}
-        <Card>
+        <Card className="bg-white/80 backdrop-blur-sm border-pink-100 shadow-lg">
           <CardHeader>
-            <CardTitle>All Main Categories ({categories.length})</CardTitle>
+            <CardTitle className="text-gray-900">All Main Categories ({filteredCategories.length})</CardTitle>
             <CardDescription>View and manage all main categories</CardDescription>
           </CardHeader>
           <CardContent>
-            {categories.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No categories found. Create your first category to get started.
+            {filteredCategories.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Filter className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {searchTerm ? 'No categories found' : 'No categories yet'}
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  {searchTerm 
+                    ? `No categories match "${searchTerm}"` 
+                    : 'Create your first category to get started.'
+                  }
+                </p>
+                {!searchTerm && (
+                  <Button onClick={openAddDialog} className="bg-gradient-to-r from-pink-500 to-purple-600">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add First Category
+                  </Button>
+                )}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Image</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Created Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {categories.map((category) => (
-                    <TableRow key={category._id}>
-                      <TableCell>
-                        <Image
-                          src={category.imageUrl || "/placeholder.svg"}
-                          alt={category.name}
-                          width={50}
-                          height={50}
-                          className="rounded-lg object-cover"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{category.name}</TableCell>
-                      <TableCell>{new Date(category.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(category)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(category._id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-pink-100">
+                      <TableHead className="text-gray-700 font-semibold">Image</TableHead>
+                      <TableHead className="text-gray-700 font-semibold">Name</TableHead>
+                      <TableHead className="text-gray-700 font-semibold">Created Date</TableHead>
+                      <TableHead className="text-right text-gray-700 font-semibold">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCategories.map((category) => (
+                      <TableRow key={category._id} className="hover:bg-pink-50/50 transition-colors">
+                        <TableCell>
+                          <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-pink-100">
+                            <Image
+                              src={category.imageUrl || "/placeholder.svg"}
+                              alt={category.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium text-gray-900">{category.name}</TableCell>
+                        <TableCell className="text-gray-600">
+                          {new Date(category.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleEdit(category)}
+                              className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(category._id)}
+                              className="border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
 
         {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>{editingCategory ? "Edit Main Category" : "Add New Main Category"}</DialogTitle>
+              <DialogTitle className="text-gray-900">
+                {editingCategory ? "Edit Main Category" : "Add New Main Category"}
+              </DialogTitle>
               <DialogDescription>
-                {editingCategory ? "Update the category details below." : "Enter the details for the new category."}
+                {editingCategory 
+                  ? "Update the category details below." 
+                  : "Enter the details for the new category."
+                }
               </DialogDescription>
             </DialogHeader>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+                {error}
+              </div>
             )}
 
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">Category Name</Label>
+                <Label htmlFor="name" className="text-gray-700">Category Name</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Salon at Home"
+                  className="border-pink-200 focus:border-pink-400 focus:ring-pink-400"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input
-                  id="imageUrl"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, imageUrl: e.target.value }))}
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
+              <ImageUpload
+                value={formData.imageUrl}
+                onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+                onUploadError={(error) => setError(error)}
+                label="Category Image"
+                placeholder="Upload a category image"
+              />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={submitting}>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)} 
+                disabled={submitting}
+                className="border-gray-200 text-gray-600 hover:bg-gray-50"
+              >
                 Cancel
               </Button>
               <Button
                 onClick={handleSubmit}
-                className="bg-gradient-to-r from-pink-500 to-purple-600"
+                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
                 disabled={submitting}
               >
                 {submitting ? (

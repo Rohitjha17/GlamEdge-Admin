@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,88 +15,63 @@ import {
   LogOut,
   Sparkles,
   Loader2,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle,
+  Clock,
 } from "lucide-react"
 import Link from "next/link"
-import { mainCategoriesApi, subCategoriesApi, servicesApi, authApi } from "@/lib/api"
+import { mainCategoriesApi, subCategoriesApi, servicesApi, authApi, clearCache } from "@/lib/api"
+import { Logo } from "@/components/ui/logo"
+import { Footer } from "@/components/ui/footer"
+
+interface DashboardStats {
+  totalMainCategories: number
+  totalSubCategories: number
+  totalServices: number
+  loading: boolean
+  lastUpdated: Date | null
+}
 
 export default function Dashboard() {
   const router = useRouter()
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     totalMainCategories: 0,
     totalSubCategories: 0,
     totalServices: 0,
     loading: true,
+    lastUpdated: null,
   })
   const [userProfile, setUserProfile] = useState<any>(null)
   const [apiError, setApiError] = useState<string>("")
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  useEffect(() => {
-    const token = localStorage.getItem("authToken")
-    if (!token) {
-      router.push("/")
-      return
+  // Memoized fetch function to prevent unnecessary re-renders
+  const fetchDashboardData = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setStats(prev => ({ ...prev, loading: true }))
     }
+    setApiError("")
 
-    fetchDashboardData()
-  }, [router])
-
-  const fetchDashboardData = async () => {
     try {
-      setApiError("")
       console.log("🔄 Fetching dashboard data...")
 
-      // Add delay between requests to avoid rate limiting
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+      // Use Promise.allSettled to handle partial failures gracefully
+      const results = await Promise.allSettled([
+        mainCategoriesApi.getAll(),
+        subCategoriesApi.getAll(),
+        servicesApi.getAll(),
+        authApi.getProfile(),
+      ])
 
-      // Fetch data sequentially with delays instead of parallel
-      let mainCategories = []
-      let subCategories = []
-      let services = []
-      let profile = null
+      const [mainCategoriesResult, subCategoriesResult, servicesResult, profileResult] = results
 
-      try {
-        mainCategories = await mainCategoriesApi.getAll()
-        console.log("✅ Main categories loaded:", mainCategories.length)
-        await delay(1000) // Wait 1 second between requests
-      } catch (err: any) {
-        console.error("❌ Main categories fetch failed:", err)
-        if (err.status === 429) {
-          console.warn("⚠️ Rate limited for main categories, will retry later")
-        }
-      }
+      const mainCategories = mainCategoriesResult.status === 'fulfilled' ? mainCategoriesResult.value : []
+      const subCategories = subCategoriesResult.status === 'fulfilled' ? subCategoriesResult.value : []
+      const services = servicesResult.status === 'fulfilled' ? servicesResult.value : []
+      const profile = profileResult.status === 'fulfilled' ? profileResult.value : null
 
-      try {
-        subCategories = await subCategoriesApi.getAll()
-        console.log("✅ Sub categories loaded:", subCategories.length)
-        await delay(1000) // Wait 1 second between requests
-      } catch (err: any) {
-        console.error("❌ Sub categories fetch failed:", err)
-        if (err.status === 429) {
-          console.warn("⚠️ Rate limited for sub categories, will retry later")
-        }
-      }
-
-      try {
-        services = await servicesApi.getAll()
-        console.log("✅ Services loaded:", services.length)
-        await delay(1000) // Wait 1 second between requests
-      } catch (err: any) {
-        console.error("❌ Services fetch failed:", err)
-        if (err.status === 429) {
-          console.warn("⚠️ Rate limited for services, will retry later")
-        }
-      }
-
-      try {
-        profile = await authApi.getProfile()
-        console.log("✅ Profile loaded:", profile?.name || profile?.phoneNumber || "Unknown")
-      } catch (err: any) {
-        console.error("❌ Profile fetch failed:", err)
-        if (err.status === 429) {
-          console.warn("⚠️ Rate limited for profile, will retry later")
-        }
-      }
-
+      // Log results for debugging
       console.log("📊 Dashboard data loaded:", {
         mainCategories: mainCategories.length,
         subCategories: subCategories.length,
@@ -109,22 +84,42 @@ export default function Dashboard() {
         totalSubCategories: subCategories.length,
         totalServices: services.length,
         loading: false,
+        lastUpdated: new Date(),
       })
 
       setUserProfile(profile)
 
-      // If we got rate limited, show a warning
-      if (mainCategories.length === 0 && subCategories.length === 0 && services.length === 0) {
-        console.warn("⚠️ All API calls failed - you may be rate limited. Please wait a few minutes and refresh.")
-        setApiError("Unable to load data. You may be rate limited. Please wait a few minutes and try again.")
+      // Show warning if all API calls failed
+      const successCount = results.filter(r => r.status === 'fulfilled').length
+      if (successCount === 0) {
+        setApiError("Unable to load data. Please check your connection and try again.")
+      } else if (successCount < results.length) {
+        setApiError("Some data may be outdated. Please refresh to get the latest information.")
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Dashboard data fetch error:", error)
-      setStats((prev) => ({ ...prev, loading: false }))
+      setStats(prev => ({ ...prev, loading: false }))
       setApiError("Failed to load dashboard data. Please try again.")
     }
+  }, [])
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    clearCache() // Clear all cache for fresh data
+    await fetchDashboardData(false)
+    setIsRefreshing(false)
   }
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken")
+    if (!token) {
+      router.push("/")
+      return
+    }
+
+    fetchDashboardData()
+  }, [router, fetchDashboardData])
 
   const handleLogout = () => {
     localStorage.removeItem("authToken")
@@ -135,44 +130,90 @@ export default function Dashboard() {
   }
 
   const menuItems = [
-    { title: "Main Categories", icon: Grid3X3, href: "/dashboard/main-categories", color: "from-blue-500 to-blue-600" },
-    { title: "Sub Categories", icon: Layers, href: "/dashboard/sub-categories", color: "from-green-500 to-green-600" },
-    { title: "Services", icon: Package, href: "/dashboard/services", color: "from-purple-500 to-purple-600" },
-    { title: "Users", icon: Users, href: "/dashboard/users", color: "from-orange-500 to-orange-600" },
-    { title: "Orders", icon: ShoppingCart, href: "/dashboard/orders", color: "from-pink-500 to-pink-600" },
-    { title: "Settings", icon: Settings, href: "/dashboard/settings", color: "from-gray-500 to-gray-600" },
+    { 
+      title: "Main Categories", 
+      icon: Grid3X3, 
+      href: "/dashboard/main-categories", 
+      color: "from-pink-500 to-purple-600",
+      description: "Manage service categories"
+    },
+    { 
+      title: "Sub Categories", 
+      icon: Layers, 
+      href: "/dashboard/sub-categories", 
+      color: "from-purple-500 to-indigo-600",
+      description: "Organize sub-categories"
+    },
+    { 
+      title: "Services", 
+      icon: Package, 
+      href: "/dashboard/services", 
+      color: "from-indigo-500 to-blue-600",
+      description: "Manage service offerings"
+    },
+    { 
+      title: "Users", 
+      icon: Users, 
+      href: "/dashboard/users", 
+      color: "from-blue-500 to-cyan-600",
+      description: "Customer management"
+    },
+    { 
+      title: "Orders", 
+      icon: ShoppingCart, 
+      href: "/dashboard/orders", 
+      color: "from-cyan-500 to-teal-600",
+      description: "Order tracking & management"
+    },
+    { 
+      title: "Settings", 
+      icon: Settings, 
+      href: "/dashboard/settings", 
+      color: "from-teal-500 to-green-600",
+      description: "System configuration"
+    },
   ]
 
   if (stats.loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading dashboard...</span>
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 flex items-center justify-center">
+                <div className="text-center">
+          <div className="flex items-center justify-center mb-6">
+            <Logo size="xl" variant="full" />
+          </div>
+          <div className="flex items-center justify-center space-x-2">
+            <Loader2 className="h-6 w-6 animate-spin text-pink-500" />
+            <span className="text-gray-600">Loading your dashboard...</span>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-pink-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-2 rounded-lg">
-                <Sparkles className="h-6 w-6 text-white" />
-              </div>
-              <h1 className="ml-3 text-xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                Glamedge Admin
-              </h1>
-            </div>
+            <Logo size="md" />
             <div className="flex items-center space-x-4">
               {userProfile && (
-                <div className="text-sm text-gray-600">Welcome, {userProfile.name || userProfile.phoneNumber}</div>
+                <div className="hidden sm:block text-sm text-gray-600">
+                  Welcome, {userProfile.name || userProfile.phoneNumber}
+                </div>
               )}
-              <Button onClick={handleLogout} variant="outline" size="sm">
+              <Button 
+                onClick={handleRefresh} 
+                variant="outline" 
+                size="sm"
+                disabled={isRefreshing}
+                className="border-pink-200 text-pink-600 hover:bg-pink-50"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button onClick={handleLogout} variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
@@ -182,68 +223,23 @@ export default function Dashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Main Categories</CardTitle>
-              <Grid3X3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalMainCategories}</div>
-              <p className="text-xs text-muted-foreground">Total main categories</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sub Categories</CardTitle>
-              <Layers className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalSubCategories}</div>
-              <p className="text-xs text-muted-foreground">Total sub categories</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Services</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalServices}</div>
-              <p className="text-xs text-muted-foreground">Total services</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Status</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">Active</div>
-              <p className="text-xs text-muted-foreground">System operational</p>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Error Display */}
         {apiError && (
-          <Card className="mb-8 border-red-200 bg-red-50">
+          <Card className="mb-8 border-red-200 bg-red-50/50 backdrop-blur-sm">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="text-red-600">⚠️</div>
+                <div className="flex items-center space-x-3">
+                  <AlertCircle className="h-5 w-5 text-red-600" />
                   <p className="text-red-700">{apiError}</p>
                 </div>
                 <Button 
-                  onClick={fetchDashboardData} 
+                  onClick={handleRefresh} 
                   variant="outline" 
                   size="sm"
+                  disabled={isRefreshing}
                   className="border-red-300 text-red-700 hover:bg-red-100"
                 >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                   Retry
                 </Button>
               </div>
@@ -251,21 +247,88 @@ export default function Dashboard() {
           </Card>
         )}
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white/80 backdrop-blur-sm border-pink-100 hover:shadow-lg transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">Main Categories</CardTitle>
+              <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-2 rounded-lg">
+                <Grid3X3 className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{stats.totalMainCategories}</div>
+              <p className="text-xs text-gray-500">Total main categories</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 backdrop-blur-sm border-purple-100 hover:shadow-lg transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">Sub Categories</CardTitle>
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-2 rounded-lg">
+                <Layers className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{stats.totalSubCategories}</div>
+              <p className="text-xs text-gray-500">Total sub categories</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 backdrop-blur-sm border-indigo-100 hover:shadow-lg transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">Services</CardTitle>
+              <div className="bg-gradient-to-r from-indigo-500 to-blue-600 p-2 rounded-lg">
+                <Package className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{stats.totalServices}</div>
+              <p className="text-xs text-gray-500">Total services</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 backdrop-blur-sm border-green-100 hover:shadow-lg transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-700">Status</CardTitle>
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-2 rounded-lg">
+                <CheckCircle className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">Active</div>
+              <p className="text-xs text-gray-500">System operational</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Quick Actions */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Quick Actions</h2>
+            {stats.lastUpdated && (
+              <div className="flex items-center text-sm text-gray-500">
+                <Clock className="h-4 w-4 mr-1" />
+                Last updated: {stats.lastUpdated?.toLocaleTimeString()}
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {menuItems.map((item) => (
               <Link key={item.title} href={item.href}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardHeader>
+                <Card className="bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md">
+                  <CardHeader className="pb-4">
                     <div
-                      className={`w-12 h-12 rounded-lg bg-gradient-to-r ${item.color} flex items-center justify-center mb-4`}
+                      className={`w-12 h-12 rounded-xl bg-gradient-to-r ${item.color} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}
                     >
                       <item.icon className="h-6 w-6 text-white" />
                     </div>
-                    <CardTitle className="text-lg">{item.title}</CardTitle>
-                    <CardDescription>Manage {item.title.toLowerCase()} and their settings</CardDescription>
+                    <CardTitle className="text-lg text-gray-900 group-hover:text-pink-600 transition-colors duration-300">
+                      {item.title}
+                    </CardTitle>
+                    <CardDescription className="text-gray-600">
+                      {item.description}
+                    </CardDescription>
                   </CardHeader>
                 </Card>
               </Link>
@@ -274,29 +337,42 @@ export default function Dashboard() {
         </div>
 
         {/* System Info */}
-        <Card>
+        <Card className="bg-white/80 backdrop-blur-sm border-pink-100">
           <CardHeader>
-            <CardTitle>System Information</CardTitle>
+            <CardTitle className="text-gray-900">System Information</CardTitle>
             <CardDescription>Current system status and information</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">API Status</span>
-                <span className="text-sm text-green-600">Connected</span>
+                <span className="text-sm font-medium text-gray-700">API Status</span>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <span className="text-sm text-green-600">Connected</span>
+                </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Database</span>
-                <span className="text-sm text-green-600">Online</span>
+                <span className="text-sm font-medium text-gray-700">Database</span>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <span className="text-sm text-green-600">Online</span>
+                </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Last Updated</span>
-                <span className="text-sm text-gray-500">{new Date().toLocaleString()}</span>
+                <span className="text-sm font-medium text-gray-700">Cache Status</span>
+                <span className="text-sm text-blue-600">Active</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">Last Updated</span>
+                                 <span className="text-sm text-gray-500">
+                   {stats.lastUpdated ? stats.lastUpdated?.toLocaleString() : 'Never'}
+                 </span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+      <Footer />
     </div>
   )
 }

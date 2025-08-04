@@ -19,6 +19,7 @@ import { Plus, Edit, Trash2, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { subCategoriesApi, mainCategoriesApi } from "@/lib/api"
+import { ImageUpload } from "@/components/ui/image-upload"
 
 interface SubCategory {
   _id: string
@@ -267,15 +268,13 @@ export default function SubCategoriesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input
-                  id="imageUrl"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, imageUrl: e.target.value }))}
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
+              <ImageUpload
+                value={formData.imageUrl}
+                onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+                onUploadError={(error) => setError(error)}
+                label="Sub Category Image"
+                placeholder="Upload a sub category image"
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={submitting}>

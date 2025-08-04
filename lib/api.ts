@@ -1,9 +1,13 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://yes-madem-backened.onrender.com"
-const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX ?? "/api" // e.g. "/api" or ""
+const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX ?? "/api"
 
-// Simple cache to reduce API calls
-const cache = new Map<string, { data: any; timestamp: number }>()
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+// Enhanced cache with better performance
+const cache = new Map<string, { data: any; timestamp: number; promise?: Promise<any> }>()
+const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes (increased from 5)
+const REQUEST_TIMEOUT = 15000 // 15 seconds timeout
+
+// Request deduplication
+const pendingRequests = new Map<string, Promise<any>>()
 
 function getCachedData(key: string) {
   const cached = cache.get(key)
@@ -17,6 +21,17 @@ function getCachedData(key: string) {
 function setCachedData(key: string, data: any) {
   cache.set(key, { data, timestamp: Date.now() })
   console.log(`💾 Cached data for: ${key}`)
+}
+
+// Clear cache function for manual cache invalidation
+export const clearCache = (key?: string) => {
+  if (key) {
+    cache.delete(key)
+    console.log(`🗑️ Cleared cache for: ${key}`)
+  } else {
+    cache.clear()
+    console.log(`🗑️ Cleared all cache`)
+  }
 }
 
 class ApiError extends Error {
@@ -35,36 +50,68 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
   }
 
   const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null
+  const requestKey = `${options.method || "GET"}_${endpoint}`
 
-  const config: RequestInit = {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-    ...options,
+  // Check for pending requests to avoid duplicates
+  if (pendingRequests.has(requestKey)) {
+    console.log(`🔄 Reusing pending request for: ${requestKey}`)
+    return pendingRequests.get(requestKey)!
   }
 
-  console.log(`🌐 API Request: ${options.method || "GET"} ${BASE_URL}${API_PREFIX}${endpoint}`)
+  const requestPromise = (async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
 
-  const response = await fetch(`${BASE_URL}${API_PREFIX}${endpoint}`, config)
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: "Unknown error" }))
-    console.error(`❌ API Error [${response.status}]:`, errorData)
-    
-    // Special handling for rate limit errors
-    if (response.status === 429) {
-      console.warn("⚠️ Rate limit exceeded. Please wait a few minutes before making more requests.")
-      throw new ApiError(response.status, "Too many requests. Please wait a few minutes and try again.")
+    const config: RequestInit = {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+      signal: controller.signal,
+      ...options,
     }
-    
-    throw new ApiError(response.status, errorData.message || `HTTP ${response.status}`)
-  }
 
-  const data = await response.json()
-  console.log(`✅ API Response:`, data)
-  return data
+    try {
+      console.log(`🌐 API Request: ${options.method || "GET"} ${BASE_URL}${API_PREFIX}${endpoint}`)
+      
+      const response = await fetch(`${BASE_URL}${API_PREFIX}${endpoint}`, config)
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }))
+        console.error(`❌ API Error [${response.status}]:`, errorData)
+        
+        if (response.status === 429) {
+          console.warn("⚠️ Rate limit exceeded. Please wait a few minutes before making more requests.")
+          throw new ApiError(response.status, "Too many requests. Please wait a few minutes and try again.")
+        }
+        
+        // Handle 404 errors more gracefully
+        if (response.status === 404) {
+          console.warn(`⚠️ Endpoint not found: ${endpoint}`)
+          throw new ApiError(response.status, `Endpoint not available: ${endpoint}`)
+        }
+        
+        throw new ApiError(response.status, errorData.message || `HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log(`✅ API Response:`, data)
+      return data
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      if (error.name === 'AbortError') {
+        throw new ApiError(408, "Request timeout")
+      }
+      throw error
+    } finally {
+      pendingRequests.delete(requestKey)
+    }
+  })()
+
+  pendingRequests.set(requestKey, requestPromise)
+  return requestPromise
 }
 
 // Auth API
@@ -105,14 +152,23 @@ export const authApi = {
   },
 
   getProfile: async () => {
-    return await apiRequest("/auth/profile")
+    // Check cache first
+    const cached = getCachedData('user-profile')
+    if (cached) return cached
+
+    const response = await apiRequest("/auth/profile")
+    setCachedData('user-profile', response)
+    return response
   },
 
   updateProfile: async (data: { name?: string; email?: string }) => {
-    return await apiRequest("/auth/profile", {
+    const response = await apiRequest("/auth/profile", {
       method: "PUT",
       body: JSON.stringify(data),
     })
+    // Clear profile cache when updating
+    cache.delete('user-profile')
+    return response
   },
 
   saveAddress: async (address: string) => {
@@ -135,7 +191,6 @@ interface MainCategory {
   createdAt: string
 }
 
-// Sub Categories API --------------------------------------------------------
 interface SubCategory {
   _id: string
   name: string
@@ -147,7 +202,6 @@ interface SubCategory {
   createdAt: string
 }
 
-// Services API --------------------------------------------------------
 interface Service {
   _id: string
   name: string
@@ -245,7 +299,6 @@ export const subCategoriesApi = {
   },
 
   getById: (id: string) => apiRequest(`/sub-categories/${id}`),
-  getByMainCategory: (mainCategoryId: string) => apiRequest(`/sub-categories/main/${mainCategoryId}`),
 }
 
 export const servicesApi = {
@@ -446,7 +499,18 @@ export const cartApi = {
       body: JSON.stringify(data),
     }),
 
-  getBookingDetails: () => apiRequest("/cart/booking-details"),
+  getBookingDetails: async () => {
+    try {
+      return await apiRequest("/cart/booking-details")
+    } catch (error: any) {
+      // If the endpoint doesn't exist, return empty array instead of throwing
+      if (error.status === 404) {
+        console.warn("⚠️ Booking details endpoint not available, returning empty data")
+        return []
+      }
+      throw error
+    }
+  },
 }
 
 // Health check API

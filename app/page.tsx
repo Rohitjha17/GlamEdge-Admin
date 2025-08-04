@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Sparkles, Phone } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { authApi } from "@/lib/api"
+import { Logo } from "@/components/ui/logo"
 
 const ADMIN_PHONES = ["9999999999"];
 
@@ -150,14 +151,9 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-3 rounded-full">
-              <Sparkles className="h-8 w-8 text-white" />
-            </div>
+          <div className="flex items-center justify-center mb-6">
+            <Logo size="xl" variant="full" />
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-            Glamedge Admin
-          </CardTitle>
           <CardDescription>
             {step === "phone" ? "Enter your phone number to login" : "Enter the OTP sent to your phone"}
           </CardDescription>

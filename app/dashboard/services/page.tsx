@@ -21,6 +21,7 @@ import { Plus, Edit, Trash2, ArrowLeft, IndianRupee, Loader2, Star, TrendingUp, 
 import Link from "next/link"
 import Image from "next/image"
 import { servicesApi, subCategoriesApi } from "@/lib/api"
+import { ImageUpload } from "@/components/ui/image-upload"
 
 interface Service {
   _id: string
@@ -401,15 +402,13 @@ export default function ServicesPage() {
                   rows={3}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input
-                  id="imageUrl"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, imageUrl: e.target.value }))}
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
+              <ImageUpload
+                value={formData.imageUrl}
+                onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+                onUploadError={(error) => setError(error)}
+                label="Service Image"
+                placeholder="Upload a service image"
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={submitting}>
