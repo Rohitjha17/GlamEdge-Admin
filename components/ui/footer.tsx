@@ -19,7 +19,7 @@ export function Footer() {
               <p className="text-xs">by Saheda</p>
             </div>
             <div className="text-center">
-              <p className="font-medium">© 2024</p>
+              <p className="font-medium">© 2025</p>
               <p className="text-xs">Glam Edge</p>
             </div>
           </div>
