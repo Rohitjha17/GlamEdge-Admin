@@ -17,8 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, ArrowLeft, IndianRupee, Loader2, Star, TrendingUp, Clock, Users, Sparkles, Gift } from "lucide-react"
-import Link from "next/link"
+import { Plus, Edit, Trash2, IndianRupee, Loader2, Star, TrendingUp, Clock, Users, Sparkles, Gift } from "lucide-react"
 import Image from "next/image"
 import { servicesApi, subCategoriesApi } from "@/lib/api"
 import { ImageUpload } from "@/components/ui/image-upload"
@@ -212,7 +211,6 @@ export default function ServicesPage() {
         variant={isActive ? "default" : "secondary"}
         className={`cursor-pointer ${isActive ? color : 'hover:bg-gray-100'}`}
         onClick={() => handleFlagToggle(service._id, flagType, !isActive)}
-        disabled={flagLoading === service._id}
       >
         {flagLoading === service._id ? (
           <Loader2 className="h-3 w-3 animate-spin mr-1" />
@@ -226,7 +224,7 @@ export default function ServicesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin" />
           <span>Loading services...</span>
@@ -236,202 +234,192 @@ export default function ServicesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold">Services</h1>
-              <p className="text-gray-600">Manage your beauty services and flags</p>
-            </div>
-          </div>
-          <Button onClick={openAddDialog} className="bg-gradient-to-r from-pink-500 to-purple-600">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Service
-          </Button>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Services</h1>
+          <p className="text-gray-600">Manage your beauty services and flags</p>
         </div>
+        <Button onClick={openAddDialog} className="bg-gradient-to-r from-pink-500 to-purple-600">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Service
+        </Button>
+      </div>
 
-        {/* Services Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Services ({services.length})</CardTitle>
-            <CardDescription>View and manage all your services and their flags</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {services.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No services found. Create your first service to get started.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Image</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Sub Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Flags</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+      {/* Services Table */}
+      <Card className="bg-white/90 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle>All Services ({services.length})</CardTitle>
+          <CardDescription>View and manage all your services and their flags</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {services.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No services found. Create your first service to get started.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Image</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Sub Category</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Flags</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {services.map((service) => (
+                    <TableRow key={service._id}>
+                      <TableCell>
+                        <Image
+                          src={service.imageUrl || "/placeholder.svg"}
+                          alt={service.name}
+                          width={50}
+                          height={50}
+                          className="rounded-lg object-cover"
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{service.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <IndianRupee className="h-4 w-4" />
+                          {service.price}
+                        </div>
+                      </TableCell>
+                      <TableCell>{service.subCategoryId?.name || "Not assigned"}</TableCell>
+                      <TableCell className="max-w-xs truncate">{service.description}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {getFlagBadge(service, 'trending', 'Trending', <TrendingUp className="h-3 w-3 mr-1" />, 'bg-orange-500')}
+                          {getFlagBadge(service, 'bestseller', 'Best Seller', <Star className="h-3 w-3 mr-1" />, 'bg-yellow-500')}
+                          {getFlagBadge(service, 'lastminute', 'Last Minute', <Clock className="h-3 w-3 mr-1" />, 'bg-red-500')}
+                          {getFlagBadge(service, 'people', 'People Also', <Users className="h-3 w-3 mr-1" />, 'bg-blue-500')}
+                          {getFlagBadge(service, 'spa', 'Spa Retreat', <Sparkles className="h-3 w-3 mr-1" />, 'bg-purple-500')}
+                          {getFlagBadge(service, 'whatsnew', 'What\'s New', <Gift className="h-3 w-3 mr-1" />, 'bg-green-500')}
+                        </div>
+                      </TableCell>
+                      <TableCell>{new Date(service.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(service)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(service._id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {services.map((service) => (
-                      <TableRow key={service._id}>
-                        <TableCell>
-                          <Image
-                            src={service.imageUrl || "/placeholder.svg"}
-                            alt={service.name}
-                            width={50}
-                            height={50}
-                            className="rounded-lg object-cover"
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{service.name}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <IndianRupee className="h-4 w-4" />
-                            {service.price}
-                          </div>
-                        </TableCell>
-                        <TableCell>{service.subCategoryId?.name || "Not assigned"}</TableCell>
-                        <TableCell className="max-w-xs truncate">{service.description}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {getFlagBadge(service, 'trending', 'Trending', <TrendingUp className="h-3 w-3 mr-1" />, 'bg-orange-500')}
-                            {getFlagBadge(service, 'bestseller', 'Best Seller', <Star className="h-3 w-3 mr-1" />, 'bg-yellow-500')}
-                            {getFlagBadge(service, 'lastminute', 'Last Minute', <Clock className="h-3 w-3 mr-1" />, 'bg-red-500')}
-                            {getFlagBadge(service, 'people', 'People Also', <Users className="h-3 w-3 mr-1" />, 'bg-blue-500')}
-                            {getFlagBadge(service, 'spa', 'Spa Retreat', <Sparkles className="h-3 w-3 mr-1" />, 'bg-purple-500')}
-                            {getFlagBadge(service, 'whatsnew', 'What\'s New', <Gift className="h-3 w-3 mr-1" />, 'bg-green-500')}
-                          </div>
-                        </TableCell>
-                        <TableCell>{new Date(service.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(service)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(service._id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Add/Edit Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{editingService ? "Edit Service" : "Add New Service"}</DialogTitle>
-              <DialogDescription>
-                {editingService ? "Update the service details below." : "Enter the details for the new service."}
-              </DialogDescription>
-            </DialogHeader>
+      {/* Add/Edit Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingService ? "Edit Service" : "Add New Service"}</DialogTitle>
+            <DialogDescription>
+              {editingService ? "Update the service details below." : "Enter the details for the new service."}
+            </DialogDescription>
+          </DialogHeader>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
-            )}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+          )}
 
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Service Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Premium Facial"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="price">Price (₹)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
-                  placeholder="1299"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="subCategory">Sub Category</Label>
-                <Select
-                  value={formData.subCategoryId}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, subCategoryId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sub category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subCategories.map((subCategory) => (
-                      <SelectItem key={subCategory._id} value={subCategory._id}>
-                        {subCategory.name} ({subCategory.mainCategoryId.name})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Service description..."
-                  rows={3}
-                />
-              </div>
-              <ImageUpload
-                value={formData.imageUrl}
-                onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
-                onUploadError={(error) => setError(error)}
-                label="Service Image"
-                placeholder="Upload a service image"
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Service Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Premium Facial"
               />
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={submitting}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                className="bg-gradient-to-r from-pink-500 to-purple-600"
-                disabled={submitting}
+            <div className="grid gap-2">
+              <Label htmlFor="price">Price (₹)</Label>
+              <Input
+                id="price"
+                type="number"
+                value={formData.price}
+                onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
+                placeholder="1299"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="subCategory">Sub Category</Label>
+              <Select
+                value={formData.subCategoryId}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, subCategoryId: value }))}
               >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {editingService ? "Updating..." : "Adding..."}
-                  </>
-                ) : (
-                  `${editingService ? "Update" : "Add"} Service`
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sub category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subCategories.map((subCategory) => (
+                    <SelectItem key={subCategory._id} value={subCategory._id}>
+                      {subCategory.name} ({subCategory.mainCategoryId.name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Service description..."
+                rows={3}
+              />
+            </div>
+            <ImageUpload
+              value={formData.imageUrl}
+              onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+              onUploadError={(error) => setError(error)}
+              label="Service Image"
+              placeholder="Upload a service image"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className="bg-gradient-to-r from-pink-500 to-purple-600"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {editingService ? "Updating..." : "Adding..."}
+                </>
+              ) : (
+                `${editingService ? "Update" : "Add"} Service`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
