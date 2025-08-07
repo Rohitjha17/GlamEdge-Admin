@@ -17,6 +17,7 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  Flag,
 } from "lucide-react"
 import Link from "next/link"
 import { mainCategoriesApi, subCategoriesApi, servicesApi, clearCache } from "@/lib/api"
@@ -127,24 +128,31 @@ export default function Dashboard() {
       description: "Manage service offerings"
     },
     { 
+      title: "Service Flags", 
+      icon: Flag, 
+      href: "/dashboard/service-flags", 
+      color: "from-blue-500 to-cyan-600",
+      description: "Manage marketing flags"
+    },
+    { 
       title: "Users", 
       icon: Users, 
       href: "/dashboard/users", 
-      color: "from-blue-500 to-cyan-600",
+      color: "from-cyan-500 to-teal-600",
       description: "Customer management"
     },
     { 
       title: "Orders", 
       icon: ShoppingCart, 
       href: "/dashboard/orders", 
-      color: "from-cyan-500 to-teal-600",
+      color: "from-teal-500 to-green-600",
       description: "Order tracking & management"
     },
     { 
       title: "Settings", 
       icon: Settings, 
       href: "/dashboard/settings", 
-      color: "from-teal-500 to-green-600",
+      color: "from-green-500 to-emerald-600",
       description: "System configuration"
     },
   ]

@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   Home,
-  TrendingUp
+  TrendingUp,
+  Flag
 } from "lucide-react"
 
 interface SidebarProps {
@@ -51,22 +52,28 @@ export function Sidebar({ className = "" }: SidebarProps) {
       color: "from-blue-500 to-cyan-600"
     },
     { 
+      title: "Service Flags", 
+      icon: Flag, 
+      href: "/dashboard/service-flags", 
+      color: "from-cyan-500 to-teal-600"
+    },
+    { 
       title: "Users", 
       icon: Users, 
       href: "/dashboard/users", 
-      color: "from-cyan-500 to-teal-600"
+      color: "from-teal-500 to-green-600"
     },
     { 
       title: "Orders", 
       icon: ShoppingCart, 
       href: "/dashboard/orders", 
-      color: "from-teal-500 to-green-600"
+      color: "from-green-500 to-emerald-600"
     },
     { 
       title: "Settings", 
       icon: Settings, 
       href: "/dashboard/settings", 
-      color: "from-green-500 to-emerald-600"
+      color: "from-emerald-500 to-blue-600"
     },
   ]
 
