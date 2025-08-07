@@ -17,7 +17,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, IndianRupee, Loader2, Star, TrendingUp, Clock, Users, Sparkles, Gift } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Plus, Edit, Trash2, IndianRupee, Loader2, Star, TrendingUp, Clock, Users, Sparkles, Gift, X } from "lucide-react"
 import Image from "next/image"
 import { servicesApi, subCategoriesApi } from "@/lib/api"
 import { ImageUpload } from "@/components/ui/image-upload"
@@ -33,12 +34,45 @@ interface Service {
     name: string
   }
   createdAt: string
+  // Service flags
   isTrendingNearYou?: boolean
   isBestSeller?: boolean
   isLastMinuteAddon?: boolean
   isPeopleAlsoAvailed?: boolean
   isSpaRetreatForWomen?: boolean
   isWhatsNew?: boolean
+  // Additional comprehensive fields
+  keyIngredients?: Array<{
+    name: string
+    description: string
+    imageUrl: string
+  }>
+  benefits?: string[]
+  procedure?: Array<{
+    title: string
+    description: string
+    imageUrl: string
+  }>
+  precautionsAndAftercare?: string[]
+  thingsToKnow?: string[]
+  faqs?: Array<{
+    question: string
+    answer: string
+  }>
+  isDiscounted?: boolean
+  discountPrice?: number
+  originalPrice?: number
+  offerTags?: string[]
+  duration?: string
+  includedItems?: string[]
+  popularity?: string
+  isNewLaunch?: boolean
+  categoryTags?: string[]
+  brand?: string
+  professionalTypes?: string[]
+  serviceCharge?: number
+  productCost?: number
+  disposableCost?: number
 }
 
 interface SubCategory {
@@ -61,10 +95,32 @@ export default function ServicesPage() {
     description: "",
     imageUrl: "",
     subCategoryId: "",
+    // Additional comprehensive fields
+    keyIngredients: [] as Array<{ name: string; description: string; imageUrl: string }>,
+    benefits: [] as string[],
+    procedure: [] as Array<{ title: string; description: string; imageUrl: string }>,
+    precautionsAndAftercare: [] as string[],
+    thingsToKnow: [] as string[],
+    faqs: [] as Array<{ question: string; answer: string }>,
+    isDiscounted: false,
+    discountPrice: "",
+    originalPrice: "",
+    offerTags: [] as string[],
+    duration: "",
+    includedItems: [] as string[],
+    popularity: "",
+    isNewLaunch: false,
+    categoryTags: [] as string[],
+    brand: "",
+    professionalTypes: [] as string[],
+    serviceCharge: "",
+    productCost: "",
+    disposableCost: "",
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [flagLoading, setFlagLoading] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("basic")
 
   useEffect(() => {
     fetchData()
@@ -86,7 +142,7 @@ export default function ServicesPage() {
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.price || !formData.description || !formData.imageUrl || !formData.subCategoryId) {
-      setError("Please fill all fields")
+      setError("Please fill all required fields")
       return
     }
 
@@ -97,6 +153,11 @@ export default function ServicesPage() {
       const serviceData = {
         ...formData,
         price: Number.parseInt(formData.price),
+        discountPrice: formData.discountPrice ? Number.parseInt(formData.discountPrice) : undefined,
+        originalPrice: formData.originalPrice ? Number.parseInt(formData.originalPrice) : undefined,
+        serviceCharge: formData.serviceCharge ? Number.parseInt(formData.serviceCharge) : undefined,
+        productCost: formData.productCost ? Number.parseInt(formData.productCost) : undefined,
+        disposableCost: formData.disposableCost ? Number.parseInt(formData.disposableCost) : undefined,
       }
 
       if (editingService) {
@@ -108,13 +169,43 @@ export default function ServicesPage() {
       await fetchData()
       setIsDialogOpen(false)
       setEditingService(null)
-      setFormData({ name: "", price: "", description: "", imageUrl: "", subCategoryId: "" })
+      resetFormData()
     } catch (error: any) {
       setError(error.message || "Failed to save service")
       console.error("Save service error:", error)
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const resetFormData = () => {
+    setFormData({
+      name: "",
+      price: "",
+      description: "",
+      imageUrl: "",
+      subCategoryId: "",
+      keyIngredients: [],
+      benefits: [],
+      procedure: [],
+      precautionsAndAftercare: [],
+      thingsToKnow: [],
+      faqs: [],
+      isDiscounted: false,
+      discountPrice: "",
+      originalPrice: "",
+      offerTags: [],
+      duration: "",
+      includedItems: [],
+      popularity: "",
+      isNewLaunch: false,
+      categoryTags: [],
+      brand: "",
+      professionalTypes: [],
+      serviceCharge: "",
+      productCost: "",
+      disposableCost: "",
+    })
   }
 
   const handleEdit = (service: Service) => {
@@ -125,6 +216,26 @@ export default function ServicesPage() {
       description: service.description,
       imageUrl: service.imageUrl,
       subCategoryId: service.subCategoryId?._id || "",
+      keyIngredients: service.keyIngredients || [],
+      benefits: service.benefits || [],
+      procedure: service.procedure || [],
+      precautionsAndAftercare: service.precautionsAndAftercare || [],
+      thingsToKnow: service.thingsToKnow || [],
+      faqs: service.faqs || [],
+      isDiscounted: service.isDiscounted || false,
+      discountPrice: service.discountPrice?.toString() || "",
+      originalPrice: service.originalPrice?.toString() || "",
+      offerTags: service.offerTags || [],
+      duration: service.duration || "",
+      includedItems: service.includedItems || [],
+      popularity: service.popularity || "",
+      isNewLaunch: service.isNewLaunch || false,
+      categoryTags: service.categoryTags || [],
+      brand: service.brand || "",
+      professionalTypes: service.professionalTypes || [],
+      serviceCharge: service.serviceCharge?.toString() || "",
+      productCost: service.productCost?.toString() || "",
+      disposableCost: service.disposableCost?.toString() || "",
     })
     setError("")
     setIsDialogOpen(true)
@@ -199,9 +310,30 @@ export default function ServicesPage() {
 
   const openAddDialog = () => {
     setEditingService(null)
-    setFormData({ name: "", price: "", description: "", imageUrl: "", subCategoryId: "" })
+    resetFormData()
     setError("")
     setIsDialogOpen(true)
+  }
+
+  const addArrayItem = (field: string, item: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: [...(prev[field as keyof typeof prev] as any[]), item]
+    }))
+  }
+
+  const removeArrayItem = (field: string, index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: (prev[field as keyof typeof prev] as any[]).filter((_: any, i: number) => i !== index)
+    }))
+  }
+
+  const updateArrayItem = (field: string, index: number, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: (prev[field as keyof typeof prev] as any[]).map((item: any, i: number) => i === index ? value : item)
+    }))
   }
 
   const getFlagBadge = (service: Service, flagType: string, label: string, icon: any, color: string) => {
@@ -289,7 +421,14 @@ export default function ServicesPage() {
                       <TableCell>
                         <div className="flex items-center">
                           <IndianRupee className="h-4 w-4" />
-                          {service.price}
+                          {service.isDiscounted ? (
+                            <div>
+                              <span className="line-through text-gray-400">{service.originalPrice}</span>
+                              <span className="text-red-600 font-bold ml-2">{service.discountPrice}</span>
+                            </div>
+                          ) : (
+                            service.price
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{service.subCategoryId?.name || "Not assigned"}</TableCell>
@@ -331,7 +470,7 @@ export default function ServicesPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingService ? "Edit Service" : "Add New Service"}</DialogTitle>
             <DialogDescription>
@@ -343,62 +482,546 @@ export default function ServicesPage() {
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
           )}
 
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Service Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Premium Facial"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="price">Price (₹)</Label>
-              <Input
-                id="price"
-                type="number"
-                value={formData.price}
-                onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
-                placeholder="1299"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="subCategory">Sub Category</Label>
-              <Select
-                value={formData.subCategoryId}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, subCategoryId: value }))}
+          {/* Tab Navigation */}
+          <div className="flex space-x-1 border-b">
+            {["basic", "pricing", "details", "ingredients", "procedure", "faqs"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+                  activeTab === tab
+                    ? "bg-pink-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sub category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subCategories.map((subCategory) => (
-                    <SelectItem key={subCategory._id} value={subCategory._id}>
-                      {subCategory.name} ({subCategory.mainCategoryId.name})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Service description..."
-                rows={3}
-              />
-            </div>
-            <ImageUpload
-              value={formData.imageUrl}
-              onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
-              onUploadError={(error) => setError(error)}
-              label="Service Image"
-              placeholder="Upload a service image"
-            />
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
           </div>
+
+          <div className="py-4">
+            {/* Basic Information Tab */}
+            {activeTab === "basic" && (
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Service Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., Korean Glow Facial"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="price">Price (₹) *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
+                    placeholder="1249"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="subCategory">Sub Category *</Label>
+                  <Select
+                    value={formData.subCategoryId}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, subCategoryId: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sub category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subCategories.map((subCategory) => (
+                        <SelectItem key={subCategory._id} value={subCategory._id}>
+                          {subCategory.name} ({subCategory.mainCategoryId.name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Description *</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="9 Steps Facial | Includes Free Silicone Facial Brush"
+                    rows={3}
+                  />
+                </div>
+                <ImageUpload
+                  value={formData.imageUrl}
+                  onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+                  onUploadError={(error) => setError(error)}
+                  label="Service Image *"
+                  placeholder="Upload a service image"
+                />
+                <div className="grid gap-2">
+                  <Label htmlFor="brand">Brand</Label>
+                  <Input
+                    id="brand"
+                    value={formData.brand}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, brand: e.target.value }))}
+                    placeholder="e.g., ORGANICA DA ROMA"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="duration">Duration</Label>
+                  <Input
+                    id="duration"
+                    value={formData.duration}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, duration: e.target.value }))}
+                    placeholder="e.g., 1 hr 15 mins"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Pricing Tab */}
+            {activeTab === "pricing" && (
+              <div className="grid gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isDiscounted"
+                    checked={formData.isDiscounted}
+                    onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, isDiscounted: checked as boolean }))}
+                  />
+                  <Label htmlFor="isDiscounted">This service has a discount</Label>
+                </div>
+                {formData.isDiscounted && (
+                  <>
+                    <div className="grid gap-2">
+                      <Label htmlFor="originalPrice">Original Price (₹)</Label>
+                      <Input
+                        id="originalPrice"
+                        type="number"
+                        value={formData.originalPrice}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, originalPrice: e.target.value }))}
+                        placeholder="1499"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="discountPrice">Discount Price (₹)</Label>
+                      <Input
+                        id="discountPrice"
+                        type="number"
+                        value={formData.discountPrice}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, discountPrice: e.target.value }))}
+                        placeholder="999"
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="grid gap-2">
+                  <Label htmlFor="serviceCharge">Service Charge (₹)</Label>
+                  <Input
+                    id="serviceCharge"
+                    type="number"
+                    value={formData.serviceCharge}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, serviceCharge: e.target.value }))}
+                    placeholder="100"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="productCost">Product Cost (₹)</Label>
+                  <Input
+                    id="productCost"
+                    type="number"
+                    value={formData.productCost}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, productCost: e.target.value }))}
+                    placeholder="200"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="disposableCost">Disposable Cost (₹)</Label>
+                  <Input
+                    id="disposableCost"
+                    type="number"
+                    value={formData.disposableCost}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, disposableCost: e.target.value }))}
+                    placeholder="50"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="popularity">Popularity Text</Label>
+                  <Input
+                    id="popularity"
+                    value={formData.popularity}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, popularity: e.target.value }))}
+                    placeholder="25K+ people booked this in last 30 days"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isNewLaunch"
+                    checked={formData.isNewLaunch}
+                    onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, isNewLaunch: checked as boolean }))}
+                  />
+                  <Label htmlFor="isNewLaunch">This is a new launch</Label>
+                </div>
+              </div>
+            )}
+
+            {/* Details Tab */}
+            {activeTab === "details" && (
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label>Offer Tags</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.offerTags.map((tag, index) => (
+                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        {tag}
+                        <X
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() => removeArrayItem('offerTags', index)}
+                        />
+                      </Badge>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const tag = prompt("Enter offer tag:")
+                        if (tag) addArrayItem('offerTags', tag)
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Tag
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Category Tags</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.categoryTags.map((tag, index) => (
+                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        {tag}
+                        <X
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() => removeArrayItem('categoryTags', index)}
+                        />
+                      </Badge>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const tag = prompt("Enter category tag:")
+                        if (tag) addArrayItem('categoryTags', tag)
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Tag
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Benefits</Label>
+                  <div className="space-y-2">
+                    {formData.benefits.map((benefit, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={benefit}
+                          onChange={(e) => updateArrayItem('benefits', index, e.target.value)}
+                          placeholder="e.g., Deep hydration"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeArrayItem('benefits', index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addArrayItem('benefits', '')}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Benefit
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Included Items</Label>
+                  <div className="space-y-2">
+                    {formData.includedItems.map((item, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={item}
+                          onChange={(e) => updateArrayItem('includedItems', index, e.target.value)}
+                          placeholder="e.g., Free Silicone Facial Brush"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeArrayItem('includedItems', index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addArrayItem('includedItems', '')}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Item
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Professional Types</Label>
+                  <div className="space-y-2">
+                    {formData.professionalTypes.map((type, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={type}
+                          onChange={(e) => updateArrayItem('professionalTypes', index, e.target.value)}
+                          placeholder="e.g., Standard"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeArrayItem('professionalTypes', index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addArrayItem('professionalTypes', '')}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Type
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Precautions & Aftercare</Label>
+                  <div className="space-y-2">
+                    {formData.precautionsAndAftercare.map((item, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={item}
+                          onChange={(e) => updateArrayItem('precautionsAndAftercare', index, e.target.value)}
+                          placeholder="e.g., Avoid sun exposure for 24 hours"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeArrayItem('precautionsAndAftercare', index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addArrayItem('precautionsAndAftercare', '')}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Item
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Things to Know</Label>
+                  <div className="space-y-2">
+                    {formData.thingsToKnow.map((item, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={item}
+                          onChange={(e) => updateArrayItem('thingsToKnow', index, e.target.value)}
+                          placeholder="e.g., Duration: 1 hour"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeArrayItem('thingsToKnow', index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addArrayItem('thingsToKnow', '')}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Item
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Ingredients Tab */}
+            {activeTab === "ingredients" && (
+              <div className="grid gap-4">
+                <Label>Key Ingredients</Label>
+                <div className="space-y-4">
+                  {formData.keyIngredients.map((ingredient, index) => (
+                    <div key={index} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium">Ingredient {index + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeArrayItem('keyIngredients', index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="grid gap-2">
+                        <Input
+                          placeholder="Ingredient name"
+                          value={ingredient.name}
+                          onChange={(e) => updateArrayItem('keyIngredients', index, { ...ingredient, name: e.target.value })}
+                        />
+                        <Textarea
+                          placeholder="Description"
+                          value={ingredient.description}
+                          onChange={(e) => updateArrayItem('keyIngredients', index, { ...ingredient, description: e.target.value })}
+                          rows={2}
+                        />
+                        <Input
+                          placeholder="Image URL"
+                          value={ingredient.imageUrl}
+                          onChange={(e) => updateArrayItem('keyIngredients', index, { ...ingredient, imageUrl: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => addArrayItem('keyIngredients', { name: '', description: '', imageUrl: '' })}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Ingredient
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Procedure Tab */}
+            {activeTab === "procedure" && (
+              <div className="grid gap-4">
+                <Label>Procedure Steps</Label>
+                <div className="space-y-4">
+                  {formData.procedure.map((step, index) => (
+                    <div key={index} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium">Step {index + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeArrayItem('procedure', index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="grid gap-2">
+                        <Input
+                          placeholder="Step title"
+                          value={step.title}
+                          onChange={(e) => updateArrayItem('procedure', index, { ...step, title: e.target.value })}
+                        />
+                        <Textarea
+                          placeholder="Step description"
+                          value={step.description}
+                          onChange={(e) => updateArrayItem('procedure', index, { ...step, description: e.target.value })}
+                          rows={2}
+                        />
+                        <Input
+                          placeholder="Image URL"
+                          value={step.imageUrl}
+                          onChange={(e) => updateArrayItem('procedure', index, { ...step, imageUrl: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => addArrayItem('procedure', { title: '', description: '', imageUrl: '' })}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Step
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* FAQs Tab */}
+            {activeTab === "faqs" && (
+              <div className="grid gap-4">
+                <Label>Frequently Asked Questions</Label>
+                <div className="space-y-4">
+                  {formData.faqs.map((faq, index) => (
+                    <div key={index} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium">FAQ {index + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeArrayItem('faqs', index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="grid gap-2">
+                        <Input
+                          placeholder="Question"
+                          value={faq.question}
+                          onChange={(e) => updateArrayItem('faqs', index, { ...faq, question: e.target.value })}
+                        />
+                        <Textarea
+                          placeholder="Answer"
+                          value={faq.answer}
+                          onChange={(e) => updateArrayItem('faqs', index, { ...faq, answer: e.target.value })}
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => addArrayItem('faqs', { question: '', answer: '' })}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add FAQ
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={submitting}>
               Cancel

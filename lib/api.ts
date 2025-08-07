@@ -202,17 +202,57 @@ interface SubCategory {
   createdAt: string
 }
 
+// Comprehensive Service interface matching the API
 interface Service {
   _id: string
   name: string
   price: number
   description: string
   imageUrl: string
-  subCategoryId: {
+  subCategoryId?: {
     _id: string
     name: string
   }
   createdAt: string
+  // Service flags
+  isTrendingNearYou?: boolean
+  isBestSeller?: boolean
+  isLastMinuteAddon?: boolean
+  isPeopleAlsoAvailed?: boolean
+  isSpaRetreatForWomen?: boolean
+  isWhatsNew?: boolean
+  // Additional fields from API
+  keyIngredients?: Array<{
+    name: string
+    description: string
+    imageUrl: string
+  }>
+  benefits?: string[]
+  procedure?: Array<{
+    title: string
+    description: string
+    imageUrl: string
+  }>
+  precautionsAndAftercare?: string[]
+  thingsToKnow?: string[]
+  faqs?: Array<{
+    question: string
+    answer: string
+  }>
+  isDiscounted?: boolean
+  discountPrice?: number
+  originalPrice?: number
+  offerTags?: string[]
+  duration?: string
+  includedItems?: string[]
+  popularity?: string
+  isNewLaunch?: boolean
+  categoryTags?: string[]
+  brand?: string
+  professionalTypes?: string[]
+  serviceCharge?: number
+  productCost?: number
+  disposableCost?: number
 }
 
 export const mainCategoriesApi = {
@@ -320,6 +360,38 @@ export const servicesApi = {
     description: string
     imageUrl: string
     subCategoryId: string
+    // Additional comprehensive fields
+    keyIngredients?: Array<{
+      name: string
+      description: string
+      imageUrl: string
+    }>
+    benefits?: string[]
+    procedure?: Array<{
+      title: string
+      description: string
+      imageUrl: string
+    }>
+    precautionsAndAftercare?: string[]
+    thingsToKnow?: string[]
+    faqs?: Array<{
+      question: string
+      answer: string
+    }>
+    isDiscounted?: boolean
+    discountPrice?: number
+    originalPrice?: number
+    offerTags?: string[]
+    duration?: string
+    includedItems?: string[]
+    popularity?: string
+    isNewLaunch?: boolean
+    categoryTags?: string[]
+    brand?: string
+    professionalTypes?: string[]
+    serviceCharge?: number
+    productCost?: number
+    disposableCost?: number
   }) => {
     const response = await apiRequest("/services", {
       method: "POST",
@@ -338,6 +410,38 @@ export const servicesApi = {
       description?: string
       imageUrl?: string
       subCategoryId?: string
+      // Additional comprehensive fields
+      keyIngredients?: Array<{
+        name: string
+        description: string
+        imageUrl: string
+      }>
+      benefits?: string[]
+      procedure?: Array<{
+        title: string
+        description: string
+        imageUrl: string
+      }>
+      precautionsAndAftercare?: string[]
+      thingsToKnow?: string[]
+      faqs?: Array<{
+        question: string
+        answer: string
+      }>
+      isDiscounted?: boolean
+      discountPrice?: number
+      originalPrice?: number
+      offerTags?: string[]
+      duration?: string
+      includedItems?: string[]
+      popularity?: string
+      isNewLaunch?: boolean
+      categoryTags?: string[]
+      brand?: string
+      professionalTypes?: string[]
+      serviceCharge?: number
+      productCost?: number
+      disposableCost?: number
     },
   ) => {
     const response = await apiRequest(`/services/${id}`, {
@@ -516,4 +620,19 @@ export const cartApi = {
 // Health check API
 export const healthApi = {
   check: () => apiRequest("/health"),
+}
+
+// Additional API endpoints that might be needed
+export const additionalApi = {
+  // Get services by sub-category IDs using GET method
+  getServicesBySubCategories: (ids: string[]) => 
+    apiRequest(`/services/by-subcategories?ids=${ids.join(',')}`),
+  
+  // Get services by sub-category using path parameter
+  getServicesBySubCategory: (subcategoryId: string) => 
+    apiRequest(`/services/subcategory/${subcategoryId}`),
+  
+  // Get sub-categories by main category
+  getSubCategoriesByMainCategory: (mainCategoryId: string) => 
+    apiRequest(`/sub-categories/main/${mainCategoryId}`),
 }
